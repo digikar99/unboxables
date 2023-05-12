@@ -51,13 +51,18 @@
           (tg:finalize ,struct (lambda ()
                                  (foreign-free ,struct-ptr)))
           ,@(loop :for field :in field-infos
-                  :collect (with-slots ((field-name name) offset ctype)
+                  :collect (with-slots ((field-name name) offset ctype size)
                                field
-                             `(setf (mem-ref ,struct-ptr ',ctype ,offset)
-                                    ,(if (keywordp ctype)
-                                         field-name
-                                         `(mem-ref (unboxable-pointer ,field-name)
-                                                   ',ctype)))))
+                             (if (eq :pointer ctype)
+                                 `(foreign-funcall "memcpy"
+                                                   :pointer
+                                                   (inc-pointer ,struct-ptr ,offset)
+                                                   :pointer
+                                                   (unboxable-pointer ,field-name)
+                                                   :int
+                                                   ,size)
+                                 `(setf (mem-ref ,struct-ptr ',ctype ,offset)
+                                        ,field-name))))
           ,struct)))))
 
 
@@ -66,7 +71,7 @@
 
   (declare (type unboxable-field-info field-info))
 
-  (with-slots ((field-name name) type ctype offset accessor) field-info
+  (with-slots ((field-name name) type ctype offset accessor size) field-info
 
     `((declaim (inline ,accessor (setf ,accessor)
                        ,(symbolicate accessor '*)
@@ -74,35 +79,53 @@
 
       (defun ,accessor (object)
         (declare (type ,name object))
-        ,(if (keywordp ctype)
+        ,(if (not (eq ctype :pointer))
              `(mem-ref (unboxable-pointer object)
                        ',ctype ,offset)
-             `(%make-unboxable :pointer (inc-pointer (unboxable-pointer object) ,offset)
-                               :element-type ',type
-                               :element-size ,(type-size type)
-                               :total-size ,(type-size type))))
+             (multiple-value-bind
+                   (element-type element-size array-dimensions array-size total-size)
+                 (parse-unboxable-spec type)
+               `(%make-unboxable :pointer (inc-pointer (unboxable-pointer object) ,offset)
+                                 :element-type ',element-type
+                                 :element-ctype ',(type-ctype element-type)
+                                 :element-size ,element-size
+                                 :array-size ,array-size
+                                 :array-dimensions ',array-dimensions
+                                 :total-size ,total-size))))
 
       (defun ,(symbolicate accessor '*) (object-pointer)
         (declare (type foreign-pointer object-pointer))
-        ,(if (keywordp ctype)
+        ,(if (not (eq ctype :pointer))
              `(mem-ref object-pointer ',ctype ,offset)
              `(inc-pointer object-pointer ,offset)))
 
       (defun (setf ,accessor) (value object)
         (declare (type ,name object))
-        ,(if (keywordp ctype)
+        ,(if (not (eq ctype :pointer))
              `(setf (mem-ref (unboxable-pointer object) ',ctype ,offset)
                     value)
-             `(setf (mem-ref (unboxable-pointer object) ',ctype ,offset)
-                    (mem-ref (unboxable-pointer value) ',ctype))))
+             `(foreign-funcall "memcpy"
+                               :pointer
+                               (inc-pointer (unboxable-pointer object) ,offset)
+                               :pointer
+                               (unboxable-pointer value)
+                               :int
+                               ,size))
+        value)
 
       (defun (setf ,(symbolicate accessor '*)) (value object-pointer)
         (declare (type foreign-pointer object-pointer))
-        ,(if (keywordp ctype)
+        ,(if (not (eq ctype :pointer))
              `(setf (mem-ref object-pointer ',ctype ,offset)
                     value)
-             `(setf (mem-ref object-pointer ',ctype ,offset)
-                    (mem-ref value ',ctype)))))))
+             `(foreign-funcall "memcpy"
+                               :pointer
+                               (inc-pointer object-pointer ,offset)
+                               :pointer
+                               (unboxable-pointer value)
+                               :int
+                               ,size))
+        value))))
 
 (defmacro define-unboxable-primitive (name &body fields)
   "
@@ -131,14 +154,16 @@ Each of FIELDS should be of the form
                                                 :type type
                                                 :ctype ctype
                                                 :offset (- total-offset-so-far size)
+                                                :size size
                                                 :accessor accessor)))))
          (field-codes
            (loop :for field :in field-infos
-                 :collect (with-slots (name type offset accessor ctype) field
+                 :collect (with-slots (name type offset accessor ctype size) field
                             `(make-unboxable-field-info :name ',name
                                                         :type ',type
                                                         :ctype ',ctype
                                                         :offset ,offset
+                                                        :size ,size
                                                         :accessor ',accessor)))))
 
     (with-gensyms (struct-info)

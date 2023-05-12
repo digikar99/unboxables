@@ -26,6 +26,7 @@
   offset
   type
   ctype
+  size
   accessor)
 
 ;; (define-unboxable single-float :size 4)
@@ -53,6 +54,16 @@
         (let ((info (unboxable-info type)))
           (unboxable-primitive-total-size info)))))))
 
+(defun type-dimensions (type)
+  (if (ignore-errors (subtypep type 'number))
+      ()
+      (optima:match type
+        ((list* _ dimensions)
+         dimensions)
+        (_
+         (unboxable-info type)
+         1))))
+
 (defun type-ctype (type)
   (switch (type :test (lambda (t1 t2)
                         (ignore-errors (type= t1 t2))))
@@ -66,7 +77,7 @@
     ('(unsigned-byte 64) :int64)
     ('single-float :float)
     ('double-float :double)
-    (t `(:struct ,type))))
+    (t :pointer)))
 
 (declaim (ftype (function ((or symbol cons))
                           (values (or symbol cons)

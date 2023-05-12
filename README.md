@@ -196,6 +196,15 @@ UNBOXABLES-DEMO> (make-unboxable '(triplet 100 100))
     at #.(SB-SYS:INT-SAP #X7FAADA164010) (240000 bytes)>
 ```
 
+Also
+
+```lisp
+UNBOXABLES-DEMO> (define-unboxable-primitive point-and-array
+                   (a (make-point) :type point)
+                   (b (make-unboxable '(point 10)) :type (point 10)))
+POINT-AND-ARRAY
+```
+
 ## Issues
 
 Same elements of an array need not be EQ to each other.
@@ -211,9 +220,9 @@ In addition, because we are often dealing with raw pointers, one may run into se
 
 ## Limitations and Future Plans
 
-- more robust type checking
-- `unboxable-aref` in addition to row-major-aref
-- mixing primitives and arrays
+- more robust type checking: will add
+- `unboxable-aref` in addition to row-major-aref: will add
+- inheritance: perhaps, won't add
 
 ## trivial-garbage:finalize
 
