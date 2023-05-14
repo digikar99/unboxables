@@ -11,11 +11,11 @@
          (elt-size (unboxable-element-size ub)))
     (if (and (atom elt-type)
              (not (unboxable-info elt-type)))
-        (mem-ref ptr (type-ctype elt-type) (* index elt-size))
+        (cffi:mem-ref ptr (type-ctype elt-type) (* index elt-size))
         (multiple-value-bind
               (element-type element-size array-dimensions array-size total-size)
             (parse-unboxable-spec elt-type)
-          (%make-unboxable :pointer (inc-pointer ptr (* index elt-size))
+          (%make-unboxable :pointer (cffi:inc-pointer ptr (* index elt-size))
                            :element-type element-type
                            :element-size element-size
                            :total-size total-size
@@ -32,9 +32,9 @@
          (elt-size  (unboxable-element-size ub)))
     (if (and (atom elt-type)
              (not (unboxable-info elt-type)))
-        (setf (mem-ref ptr elt-ctype (* index elt-size)) value)
-        (setf (mem-ref ptr elt-ctype (* index elt-size))
-              (mem-ref (unboxable-pointer value) elt-ctype)))
+        (setf (cffi:mem-ref ptr elt-ctype (* index elt-size)) value)
+        (setf (cffi:mem-ref ptr elt-ctype (* index elt-size))
+              (cffi:mem-ref (unboxable-pointer value) elt-ctype)))
     value))
 
 
@@ -48,7 +48,7 @@
   (let* ((ub unboxable)
          (ptr      (unboxable-pointer ub))
          (elt-size (unboxable-element-size ub)))
-    (inc-pointer ptr (* index elt-size))))
+    (cffi:inc-pointer ptr (* index elt-size))))
 
 ;; TODO: Optimize this.
 (defun (setf unboxable-row-major-aref*) (value unboxable index)
@@ -61,8 +61,8 @@
          (elt-ctype (unboxable-element-ctype ub)))
     (if (and (atom elt-ctype)
              (not (unboxable-info elt-type)))
-        (setf (mem-ref ptr elt-ctype (* index elt-size))
+        (setf (cffi:mem-ref ptr elt-ctype (* index elt-size))
               value)
-        (setf (mem-ref ptr elt-ctype (* index elt-size))
-              (mem-ref value elt-ctype)))
+        (setf (cffi:mem-ref ptr elt-ctype (* index elt-size))
+              (cffi:mem-ref value elt-ctype)))
     value))

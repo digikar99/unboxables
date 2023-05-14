@@ -4,7 +4,7 @@
 (defstruct (unboxable (:constructor %make-unboxable))
   (element-type    nil :read-only t)
   (element-ctype   nil :read-only t)
-  (pointer         nil :read-only t :type foreign-pointer)
+  (pointer         nil :read-only t :type cffi:foreign-pointer)
   (element-size     0  :read-only t :type (unsigned-byte 32))
   (array-size       1  :read-only t :type (unsigned-byte 32))
   (array-dimensions () :read-only t :type list)
@@ -15,14 +15,14 @@
     (with-slots (element-type array-dimensions total-size pointer) o
       (format stream "~S at #x~X (~D bytes)"
               (cons element-type array-dimensions)
-              (pointer-address pointer)
+              (cffi:pointer-address pointer)
               total-size))))
 
 
 (defun make-unboxable (unboxable-spec)
   (multiple-value-bind (element-type element-size array-dimensions array-size total-size)
       (parse-unboxable-spec unboxable-spec)
-    (let* ((ptr (foreign-alloc :uint8 :count (* element-size array-size)))
+    (let* ((ptr (cffi:foreign-alloc :uint8 :count (* element-size array-size)))
            (ub  (%make-unboxable :pointer ptr
                                  :element-type element-type
                                  :element-ctype (type-ctype element-type)
@@ -30,16 +30,16 @@
                                  :total-size total-size
                                  :array-size array-size
                                  :array-dimensions array-dimensions)))
-      (tg:finalize ub (lambda () (foreign-free ptr)))
+      (tg:finalize ub (lambda () (cffi:foreign-free ptr)))
       ub)))
 
 (defun generate-constructor (name fields field-infos size)
-  (with-gensyms (struct struct-ptr )
+  (with-gensyms (struct struct-ptr)
     `((declaim (inline ,(symbolicate 'make '- name)))
       (defun ,(symbolicate 'make '- name)
           (&optional ,@(loop :for (name default . rest) :in fields
                              :collect `(,name ,default)))
-        (let* ((,struct-ptr  (foreign-alloc :uint8 :count ,size))
+        (let* ((,struct-ptr  (cffi:foreign-alloc :uint8 :count ,size))
                (,struct
                  (%make-unboxable :pointer ,struct-ptr
                                   :element-type ',name
@@ -47,21 +47,22 @@
                                   :element-size ,size
                                   :total-size ,size)))
           (tg:finalize ,struct (lambda ()
-                                 (foreign-free ,struct-ptr)))
+                                 (cffi:foreign-free ,struct-ptr)))
           ,@(loop :for field :in field-infos
-                  :collect (with-slots ((field-name name) offset ctype size initform)
-                               field
-                             (cond ((null initform)
-                                    nil)
-                                   ((eq :pointer ctype)
-                                    `(foreign-funcall "memcpy"
-                                                      :pointer
-                                                      (inc-pointer ,struct-ptr ,offset)
-                                                      :pointer ,field-name
-                                                      :int ,size))
-                                   (t
-                                    `(setf (mem-ref ,struct-ptr ',ctype ,offset)
-                                           ,field-name)))))
+                  :collect
+                  (with-slots ((field-name name) offset ctype size initform)
+                      field
+                    (cond ((null initform)
+                           nil)
+                          ((eq :pointer ctype)
+                           `(cffi:foreign-funcall
+                             "memcpy"
+                             :pointer (cffi:inc-pointer ,struct-ptr ,offset)
+                             :pointer ,field-name
+                             :int ,size))
+                          (t
+                           `(setf (cffi:mem-ref ,struct-ptr ',ctype ,offset)
+                                  ,field-name)))))
           ,struct)))))
 
 
@@ -79,12 +80,13 @@
       (defun ,accessor (object)
         (declare (type ,name object))
         ,(if (not (eq ctype :pointer))
-             `(mem-ref (unboxable-pointer object)
+             `(cffi:mem-ref (unboxable-pointer object)
                        ',ctype ,offset)
              (multiple-value-bind
                    (element-type element-size array-dimensions array-size total-size)
                  (parse-unboxable-spec type)
-               `(%make-unboxable :pointer (inc-pointer (unboxable-pointer object) ,offset)
+               `(%make-unboxable :pointer
+                                 (cffi:inc-pointer (unboxable-pointer object) ,offset)
                                  :element-type ',element-type
                                  :element-ctype ',(type-ctype element-type)
                                  :element-size ,element-size
@@ -93,37 +95,34 @@
                                  :total-size ,total-size))))
 
       (defun ,(symbolicate accessor '*) (object-pointer)
-        (declare (type foreign-pointer object-pointer))
+        (declare (type cffi:foreign-pointer object-pointer))
         ,(if (not (eq ctype :pointer))
-             `(mem-ref object-pointer ',ctype ,offset)
-             `(inc-pointer object-pointer ,offset)))
+             `(cffi:mem-ref object-pointer ',ctype ,offset)
+             `(cffi:inc-pointer object-pointer ,offset)))
 
       (defun (setf ,accessor) (value object)
         (declare (type ,name object))
         ,(if (not (eq ctype :pointer))
-             `(setf (mem-ref (unboxable-pointer object) ',ctype ,offset)
+             `(setf (cffi:mem-ref (unboxable-pointer object) ',ctype ,offset)
                     value)
-             `(foreign-funcall "memcpy"
-                               :pointer
-                               (inc-pointer (unboxable-pointer object) ,offset)
-                               :pointer
-                               (unboxable-pointer value)
-                               :int
-                               ,size))
+             `(cffi:foreign-funcall
+               "memcpy"
+               :pointer (cffi:inc-pointer (unboxable-pointer object) ,offset)
+               :pointer (unboxable-pointer value)
+               :int ,size))
         value)
 
       (defun (setf ,(symbolicate accessor '*)) (value object-pointer)
-        (declare (type foreign-pointer object-pointer))
+        (declare (type cffi:foreign-pointer object-pointer))
         ,(if (not (eq ctype :pointer))
-             `(setf (mem-ref object-pointer ',ctype ,offset)
+             `(setf (cffi:mem-ref object-pointer ',ctype ,offset)
                     value)
-             `(foreign-funcall "memcpy"
-                               :pointer
-                               (inc-pointer object-pointer ,offset)
-                               :pointer
-                               (unboxable-pointer value)
-                               :int
-                               ,size))
+             `(cffi:foreign-funcall
+               "memcpy"
+               :pointer (cffi:inc-pointer object-pointer ,offset)
+               :pointer (unboxable-pointer value)
+               :int
+               ,size))
         value))))
 
 (defmacro define-unboxable-primitive (name &body fields)
