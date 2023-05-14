@@ -4,6 +4,7 @@
                 #:foreign-alloc
                 #:foreign-free
                 #:foreign-pointer
+                #:pointer-address
                 #:mem-ref
                 #:inc-pointer
                 #:incf-pointer)

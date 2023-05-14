@@ -13,9 +13,9 @@
 (defmethod print-object ((o unboxable) stream)
   (print-unreadable-object (o stream :type t)
     (with-slots (element-type array-dimensions total-size pointer) o
-      (format stream "~S~%    at ~S (~D bytes)"
+      (format stream "~S at #x~X (~D bytes)"
               (cons element-type array-dimensions)
-              pointer
+              (pointer-address pointer)
               total-size))))
 
 
