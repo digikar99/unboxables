@@ -39,6 +39,7 @@
       (defun ,(symbolicate 'make '- name)
           (&optional ,@(loop :for (name default . rest) :in fields
                              :collect `(,name ,default)))
+        (declare (ignorable ,@(mapcar #'first fields)))
         (let* ((,struct-ptr  (cffi:foreign-alloc :uint8 :count ,size))
                (,struct
                  (%make-unboxable :pointer ,struct-ptr
@@ -47,7 +48,9 @@
                                   :element-size ,size
                                   :total-size ,size)))
           (tg:finalize ,struct (lambda ()
-                                 (cffi:foreign-free ,struct-ptr)))
+                                 (cffi:foreign-free ,struct-ptr)
+                                 (setf (cffi:mem-ref ,struct-ptr :pointer)
+                                       (cffi:null-pointer))))
           ,@(loop :for field :in field-infos
                   :collect
                   (with-slots ((field-name name) offset ctype size initform)
@@ -58,7 +61,12 @@
                            `(cffi:foreign-funcall
                              "memcpy"
                              :pointer (cffi:inc-pointer ,struct-ptr ,offset)
-                             :pointer ,field-name
+                             :pointer (cond ((cffi:pointerp ,field-name)
+                                             ,field-name)
+                                            ((unboxable-p ,field-name)
+                                             (unboxable-pointer ,field-name))
+                                            (t
+                                             ,field-name))
                              :int ,size))
                           (t
                            `(setf (cffi:mem-ref ,struct-ptr ',ctype ,offset)

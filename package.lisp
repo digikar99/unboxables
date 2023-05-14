@@ -4,6 +4,7 @@
            #:define-unboxable-primitive
 
            #:unboxable
+           #:unboxable-p
            #:unboxable-element-type
            #:unboxable-pointer
            #:unboxable-element-size
