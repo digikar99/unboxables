@@ -2,13 +2,13 @@
 
 (declaim (inline %make-unboxable))
 (defstruct (unboxable (:constructor %make-unboxable))
-  element-type
-  element-ctype
-  (pointer         nil :type foreign-pointer)
-  (element-size     0  :type (unsigned-byte 32))
-  (array-size       1  :type (unsigned-byte 32))
-  (array-dimensions () :type list)
-  (total-size       0  :type (unsigned-byte 32)))
+  (element-type    nil :read-only t)
+  (element-ctype   nil :read-only t)
+  (pointer         nil :read-only t :type foreign-pointer)
+  (element-size     0  :read-only t :type (unsigned-byte 32))
+  (array-size       1  :read-only t :type (unsigned-byte 32))
+  (array-dimensions () :read-only t :type list)
+  (total-size       0  :read-only t :type (unsigned-byte 32)))
 
 (defmethod print-object ((o unboxable) stream)
   (print-unreadable-object (o stream :type t)
