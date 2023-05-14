@@ -20,7 +20,6 @@
 
 
 (defun make-unboxable (unboxable-spec)
-  (declare (optimize speed))
   (multiple-value-bind (element-type element-size array-dimensions array-size total-size)
       (parse-unboxable-spec unboxable-spec)
     (let* ((ptr (foreign-alloc :uint8 :count (* element-size array-size)))
@@ -40,7 +39,6 @@
       (defun ,(symbolicate 'make '- name)
           (&optional ,@(loop :for (name default . rest) :in fields
                              :collect `(,name ,default)))
-        (declare (optimize speed))
         (let* ((,struct-ptr  (foreign-alloc :uint8 :count ,size))
                (,struct
                  (%make-unboxable :pointer ,struct-ptr
@@ -169,10 +167,6 @@ Each of FIELDS should be of the form
     (with-gensyms (struct-info)
 
       `(progn
-         (defcstruct ,name
-           ,@(loop :for field :in field-infos
-                   :collect (with-slots ((field-name name) ctype) field
-                              `(,field-name ,ctype))))
          (let ((,struct-info (make-unboxable-primitive-info
                               :name ',name
                               :total-size ,total-offset-so-far
@@ -181,7 +175,6 @@ Each of FIELDS should be of the form
 
          (declaim (inline ,(symbolicate name '- 'p)))
          (defun ,(symbolicate name '- 'p) (object)
-           (declare (optimize speed))
            (and (unboxable-p object)
                 (eq ',name (unboxable-element-type object))
                 (null (unboxable-array-dimensions object))))
