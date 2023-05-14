@@ -49,18 +49,19 @@
           (tg:finalize ,struct (lambda ()
                                  (foreign-free ,struct-ptr)))
           ,@(loop :for field :in field-infos
-                  :collect (with-slots ((field-name name) offset ctype size)
+                  :collect (with-slots ((field-name name) offset ctype size initform)
                                field
-                             (if (eq :pointer ctype)
-                                 `(foreign-funcall "memcpy"
-                                                   :pointer
-                                                   (inc-pointer ,struct-ptr ,offset)
-                                                   :pointer
-                                                   (unboxable-pointer ,field-name)
-                                                   :int
-                                                   ,size)
-                                 `(setf (mem-ref ,struct-ptr ',ctype ,offset)
-                                        ,field-name))))
+                             (cond ((null initform)
+                                    nil)
+                                   ((eq :pointer ctype)
+                                    `(foreign-funcall "memcpy"
+                                                      :pointer
+                                                      (inc-pointer ,struct-ptr ,offset)
+                                                      :pointer ,field-name
+                                                      :int ,size))
+                                   (t
+                                    `(setf (mem-ref ,struct-ptr ',ctype ,offset)
+                                           ,field-name)))))
           ,struct)))))
 
 
@@ -127,12 +128,10 @@
 
 (defmacro define-unboxable-primitive (name &body fields)
   "
-NAME can also be
-  (NAME &KEY INITIAL-CONTENTS)
-with INITIAL-CONTENTS being a single dimensional list.
-
 Each of FIELDS should be of the form
-  (FIELD-NAME DEFAULT &KEY TYPE ACCESSOR)
+  (FIELD-NAME INITFORM &KEY TYPE ACCESSOR)
+
+  INITFORM may be NIL in which case the slot will remain uninitialized.
 "
 
   (let* ((total-offset-so-far 0)
@@ -140,11 +139,10 @@ Each of FIELDS should be of the form
            (loop :for field :in fields
                  :collect
                  (destructuring-bind (field-name
-                                      &optional default
+                                      initform
                                       &key type
                                         (accessor (symbolicate name '- field-name)))
                      field
-                   (declare (ignorable default))
                    (let ((size  (type-size type))
                          (ctype (type-ctype type)))
                      (incf total-offset-so-far size)
@@ -153,16 +151,20 @@ Each of FIELDS should be of the form
                                                 :ctype ctype
                                                 :offset (- total-offset-so-far size)
                                                 :size size
-                                                :accessor accessor)))))
+                                                :accessor accessor
+                                                :initform initform)))))
          (field-codes
            (loop :for field :in field-infos
-                 :collect (with-slots (name type offset accessor ctype size) field
+                 :collect (with-slots
+                                (name type offset accessor ctype size initform)
+                              field
                             `(make-unboxable-field-info :name ',name
                                                         :type ',type
                                                         :ctype ',ctype
                                                         :offset ,offset
                                                         :size ,size
-                                                        :accessor ',accessor)))))
+                                                        :accessor ',accessor
+                                                        :initform ',initform)))))
 
     (with-gensyms (struct-info)
 

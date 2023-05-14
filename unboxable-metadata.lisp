@@ -27,7 +27,8 @@
   type
   ctype
   size
-  accessor)
+  accessor
+  initform)
 
 ;; (define-unboxable single-float :size 4)
 ;; (define-unboxable double-float :size 8)
