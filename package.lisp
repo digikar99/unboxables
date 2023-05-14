@@ -1,5 +1,12 @@
 (defpackage :unboxables
-  (:use :cl :cffi :alexandria)
+  (:use :cl :alexandria)
+  (:import-from #:cffi
+                #:foreign-alloc
+                #:foreign-free
+                #:foreign-pointer
+                #:mem-ref
+                #:inc-pointer
+                #:incf-pointer)
   (:export #:make-unboxable
            #:define-unboxable-primitive
 
