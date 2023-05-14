@@ -135,61 +135,73 @@
 
 (defmacro define-unboxable-primitive (name &body fields)
   "
+NAME may also have CONC-NAME and PREDICATE like with CL:DEFSTRUCT
+
 Each of FIELDS should be of the form
   (FIELD-NAME INITFORM &KEY TYPE ACCESSOR)
 
   INITFORM may be NIL in which case the slot will remain uninitialized.
 "
 
-  (let* ((total-offset-so-far 0)
-         (field-infos
-           (loop :for field :in fields
-                 :collect
-                 (destructuring-bind (field-name
-                                      initform
-                                      &key type
-                                        (accessor (symbolicate name '- field-name)))
-                     field
-                   (let ((size  (type-size type))
-                         (ctype (type-ctype type)))
-                     (incf total-offset-so-far size)
-                     (make-unboxable-field-info :name field-name
-                                                :type type
-                                                :ctype ctype
-                                                :offset (- total-offset-so-far size)
-                                                :size size
-                                                :accessor accessor
-                                                :initform initform)))))
-         (field-codes
-           (loop :for field :in field-infos
-                 :collect (with-slots
-                                (name type offset accessor ctype size initform)
-                              field
-                            `(make-unboxable-field-info :name ',name
-                                                        :type ',type
-                                                        :ctype ',ctype
-                                                        :offset ,offset
-                                                        :size ,size
-                                                        :accessor ',accessor
-                                                        :initform ',initform)))))
+  (multiple-value-bind (name conc-name predicate)
 
-    (with-gensyms (struct-info)
+      (if (listp name)
+          (values (first name)
+                  (or (second (assoc :conc-name (rest name)))
+                      (symbolicate (first name) '-))
+                  (or (second (assoc :predicate (rest name)))
+                      (symbolicate (first name) '- 'p)))
+          (values name (symbolicate name '-)))
 
-      `(progn
-         (let ((,struct-info (make-unboxable-primitive-info
-                              :name ',name
-                              :total-size ,total-offset-so-far
-                              :fields (list ,@field-codes))))
-           (setf (unboxable-info ',name) ,struct-info))
+    (let* ((total-offset-so-far 0)
+           (field-infos
+             (loop :for field :in fields
+                   :collect
+                   (destructuring-bind (field-name
+                                        initform
+                                        &key type
+                                          (accessor (symbolicate conc-name field-name)))
+                       field
+                     (let ((size  (type-size type))
+                           (ctype (type-ctype type)))
+                       (incf total-offset-so-far size)
+                       (make-unboxable-field-info :name field-name
+                                                  :type type
+                                                  :ctype ctype
+                                                  :offset (- total-offset-so-far size)
+                                                  :size size
+                                                  :accessor accessor
+                                                  :initform initform)))))
+           (field-codes
+             (loop :for field :in field-infos
+                   :collect (with-slots
+                                  (name type offset accessor ctype size initform)
+                                field
+                              `(make-unboxable-field-info :name ',name
+                                                          :type ',type
+                                                          :ctype ',ctype
+                                                          :offset ,offset
+                                                          :size ,size
+                                                          :accessor ',accessor
+                                                          :initform ',initform)))))
 
-         (declaim (inline ,(symbolicate name '- 'p)))
-         (defun ,(symbolicate name '- 'p) (object)
-           (and (unboxable-p object)
-                (eq ',name (unboxable-element-type object))
-                (null (unboxable-array-dimensions object))))
-         (deftype ,name ()
-           '(and unboxable (satisfies ,(symbolicate name '- 'p))))
-         ,@(generate-constructor name fields field-infos total-offset-so-far)
-         ,@(loop :for field :in field-infos
-                 :nconcing (generate-accessor name field))
-         ',name))))
+      (with-gensyms (struct-info)
+
+        `(progn
+           (let ((,struct-info (make-unboxable-primitive-info
+                                :name ',name
+                                :total-size ,total-offset-so-far
+                                :fields (list ,@field-codes))))
+             (setf (unboxable-info ',name) ,struct-info))
+
+           (declaim (inline ,predicate))
+           (defun ,predicate (object)
+             (and (unboxable-p object)
+                  (eq ',name (unboxable-element-type object))
+                  (null (unboxable-array-dimensions object))))
+           (deftype ,name ()
+             '(and unboxable (satisfies ,predicate)))
+           ,@(generate-constructor name fields field-infos total-offset-so-far)
+           ,@(loop :for field :in field-infos
+                   :nconcing (generate-accessor name field))
+           ',name)))))
