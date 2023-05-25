@@ -47,23 +47,20 @@
     ('single-float 4)
     ('double-float 8)
     (t
-     (optima:match type
-       ((list* element-type dimensions)
-        (let ((total-size (reduce #'* dimensions :initial-value 1)))
-          (* (type-size element-type) total-size)))
-       (_
-        (let ((info (unboxable-info type)))
-          (unboxable-primitive-total-size info)))))))
+     (if (listp type)
+         (let* ((element-type (first type))
+                (dimensions   (rest type))
+                (total-size (reduce #'* dimensions :initial-value 1)))
+           (* (type-size element-type) total-size))
+         (let ((info (unboxable-info type)))
+           (unboxable-primitive-total-size info))))))
 
 (defun type-dimensions (type)
   (if (ignore-errors (subtypep type 'number))
       ()
-      (optima:match type
-        ((list* _ dimensions)
-         dimensions)
-        (_
-         (unboxable-info type)
-         1))))
+      (if (listp type)
+          (rest type) ; dimensions
+          1)))
 
 (defun type-ctype (type)
   (switch (type :test (lambda (t1 t2)
