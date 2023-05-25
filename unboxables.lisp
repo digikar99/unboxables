@@ -151,7 +151,7 @@ Each of FIELDS should be of the form
                       (symbolicate (first name) '-))
                   (or (second (assoc :predicate (rest name)))
                       (symbolicate (first name) '- 'p)))
-          (values name (symbolicate name '-)))
+          (values name (symbolicate name '-) (symbolicate name '- 'p)))
 
     (let* ((total-offset-so-far 0)
            (field-infos
