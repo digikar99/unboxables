@@ -9,4 +9,5 @@
   :components ((:file "package")
                (:file "unboxable-metadata")
                (:file "unboxables")
-               (:file "row-major-aref")))
+               (:file "row-major-aref")
+               (:file "do-unboxables")))
