@@ -92,18 +92,18 @@
   - ARRAY-SIZE
   - TOTAL-SIZE
 "
-  (optima:ematch unboxable-spec
-    ((list* element-type array-dimensions)
-     (let* ((elt-total-size (nth-value 4 (parse-unboxable-spec element-type)))
-            (array-size (reduce #'* array-dimensions :initial-value 1)))
-       (values element-type
-               elt-total-size
-               array-dimensions
-               array-size
-               (* elt-total-size array-size))))
-    (_
-     (values unboxable-spec
-             (type-size unboxable-spec)
-             ()
-             1
-             (type-size unboxable-spec)))))
+  (if (listp unboxable-spec)
+      (let* ((element-type     (first unboxable-spec))
+             (array-dimensions (rest unboxable-spec))
+             (elt-total-size   (nth-value 4 (parse-unboxable-spec element-type)))
+             (array-size       (reduce #'* array-dimensions :initial-value 1)))
+        (values element-type
+                elt-total-size
+                array-dimensions
+                array-size
+                (* elt-total-size array-size)))
+      (values unboxable-spec
+              (type-size unboxable-spec)
+              ()
+              1
+              (type-size unboxable-spec))))
