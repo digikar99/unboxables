@@ -47,10 +47,7 @@
                                   :element-ctype ',(type-ctype name)
                                   :element-size ,size
                                   :total-size ,size)))
-          (tg:finalize ,struct (lambda ()
-                                 (cffi:foreign-free ,struct-ptr)
-                                 (setf (cffi:mem-ref ,struct-ptr :pointer)
-                                       (cffi:null-pointer))))
+          (tg:finalize ,struct (lambda () (cffi:foreign-free ,struct-ptr)))
           ,@(loop :for field :in field-infos
                   :collect
                   (with-slots ((field-name name) offset ctype size initform)
