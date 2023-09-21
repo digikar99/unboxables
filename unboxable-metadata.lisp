@@ -47,13 +47,16 @@
     ('single-float 4)
     ('double-float 8)
     (t
-     (if (listp type)
-         (let* ((element-type (first type))
-                (dimensions   (rest type))
-                (total-size (reduce #'* dimensions :initial-value 1)))
-           (* (type-size element-type) total-size))
-         (let ((info (unboxable-info type)))
-           (unboxable-primitive-total-size info))))))
+     (cond ((null type)
+            (error "Cannot find size of TYPE ~S" type))
+           ((listp type)
+            (let* ((element-type (first type))
+                   (dimensions   (rest type))
+                   (total-size (reduce #'* dimensions :initial-value 1)))
+              (* (type-size element-type) total-size)))
+           (t
+            (let ((info (unboxable-info type)))
+              (unboxable-primitive-total-size info)))))))
 
 (defun type-dimensions (type)
   (if (ignore-errors (subtypep type 'number))
