@@ -1,5 +1,7 @@
 # unboxables
 
+> See [cffi-object](https://github.com/bohonghuang/cffi-object) for something more production quality. At the moment, `unboxables` is a proof of concept, and is rather primitive as compared to `cffi-object`.
+
 A simple wrapper around CFFI to enable contiguously allocated arrays of structures in Common Lisp.
 
 ## Basic Example
@@ -227,3 +229,7 @@ In addition, because we are often dealing with raw pointers, one may run into se
 ## trivial-garbage:finalize
 
 While we use CFFI and `foreign-alloc` and `foreign-free`, we perform the free-ing through `trivial-garbage:finalize` aka `tg:finalize`. Thus, no memory leaks should occur as long as this works correctly.
+
+## Related Projects
+
+- [cffi-object](https://github.com/bohonghuang/cffi-object): At the moment, `unboxables` is more of a proof of concept, and is fairly primitive as compared to `cffi-object`.
